@@ -42,7 +42,7 @@ export default function Component() {
 
   const handleResolve = (conflict) => {
     setSelectedConflict(conflict);
-    setSelectedTerm(conflict.terms[0]);
+    setSelectedTerm(conflict.status === "Resolved" ? conflict.terms[0] : null);
     setSelectedStatus(conflict.status);
     setIsModalVisible(true);
   };
@@ -53,7 +53,7 @@ export default function Component() {
         return {
           ...c,
           description: selectedConflict.description,
-          terms: [selectedTerm],
+          terms: selectedConflict.terms,
           status: selectedStatus,
         };
       }
@@ -84,6 +84,24 @@ export default function Component() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  const handleTermChange = (index, value) => {
+    const updatedTerms = [...selectedConflict.terms];
+    updatedTerms[index] = value;
+    setSelectedConflict({ ...selectedConflict, terms: updatedTerms });
+  };
+
+  const addTerm = () => {
+    setSelectedConflict({
+      ...selectedConflict,
+      terms: [...selectedConflict.terms, ""],
+    });
+  };
+
+  const removeTerm = (index) => {
+    const updatedTerms = selectedConflict.terms.filter((_, i) => i !== index);
+    setSelectedConflict({ ...selectedConflict, terms: updatedTerms });
+  };
 
   return (
     <div className="container mx-auto py-8">
@@ -130,15 +148,10 @@ export default function Component() {
                 </td>
                 <td className="px-4 py-3">
                   <button
-                    className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md transition-colors   ${
-                      conflict.status === "Resolved"
-                        ? "bg-muted bg-slate-500 text-muted-foreground hover:bg-muted/80 cursor-not-allowed"
-                        : "bg-primary text-primary-foreground hover:bg-primary/90 bg-black text-white sfocus:outline-none focus:ring-1 focus:ring-primary/50"
-                    }`}
+                    className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md transition-colors bg-primary text-primary-foreground hover:bg-primary/90"
                     onClick={() => handleResolve(conflict)}
-                    disabled={conflict.status === "Resolved"}
                   >
-                    Resolve
+                    {conflict.status === "Resolved" ? "Edit" : "Resolve"}
                   </button>
                 </td>
               </tr>
@@ -160,11 +173,11 @@ export default function Component() {
           >
             <div className="mb-4">
               <h2 className="text-2xl font-bold">
-                Resolve Terminology Conflict
+                {selectedConflict.status === "Resolved" ? "Edit" : "Resolve"}{" "}
+                Terminology Conflict
               </h2>
               <p className="text-muted-foreground">
-                Update the description, select the preferred term, and set the
-                status.
+                Update the description, edit terms, and set the status.
               </p>
             </div>
             <div className="grid gap-4">
@@ -185,24 +198,32 @@ export default function Component() {
                 />
               </div>
               <div className="grid items-center grid-cols-4 gap-4">
-                <label className="text-right font-medium">Preferred Term</label>
+                <label className="text-right font-medium">Terms</label>
                 <div className="col-span-3 grid gap-2">
-                  {selectedConflict.terms.map((term) => (
-                    <label
-                      key={term}
-                      className="flex items-center gap-2 font-normal"
-                    >
+                  {selectedConflict.terms.map((term, index) => (
+                    <div key={index} className="flex items-center gap-2">
                       <input
-                        type="radio"
-                        name="preferred-term"
+                        type="text"
                         value={term}
-                        checked={selectedTerm === term}
-                        onChange={() => setSelectedTerm(term)}
-                        className="h-4 w-4 rounded-full border-gray-300 text-primary focus:ring-primary"
+                        onChange={(e) =>
+                          handleTermChange(index, e.target.value)
+                        }
+                        className="flex-grow bg-muted rounded-md border border-input px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                       />
-                      {term}
-                    </label>
+                      <button
+                        onClick={() => removeTerm(index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   ))}
+                  <button
+                    onClick={addTerm}
+                    className="text-primary hover:text-primary/80"
+                  >
+                    Add Term
+                  </button>
                 </div>
               </div>
               <div className="grid items-center grid-cols-4 gap-4">
