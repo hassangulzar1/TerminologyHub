@@ -36,12 +36,14 @@ export default function Component() {
 
   const [selectedConflict, setSelectedConflict] = useState(null);
   const [selectedTerm, setSelectedTerm] = useState(null);
+  const [selectedStatus, setSelectedStatus] = useState("Unresolved");
   const [isModalVisible, setIsModalVisible] = useState(false);
   const modalRef = useRef(null);
 
   const handleResolve = (conflict) => {
     setSelectedConflict(conflict);
     setSelectedTerm(conflict.terms[0]);
+    setSelectedStatus(conflict.status);
     setIsModalVisible(true);
   };
 
@@ -52,7 +54,7 @@ export default function Component() {
           ...c,
           description: selectedConflict.description,
           terms: [selectedTerm],
-          status: "Resolved",
+          status: selectedStatus,
         };
       }
       return c;
@@ -66,6 +68,7 @@ export default function Component() {
     setTimeout(() => {
       setSelectedConflict(null);
       setSelectedTerm(null);
+      setSelectedStatus("Unresolved");
     }, 300); // Wait for the fade-out transition to complete
   };
 
@@ -160,7 +163,8 @@ export default function Component() {
                 Resolve Terminology Conflict
               </h2>
               <p className="text-muted-foreground">
-                Update the description and select the preferred term.
+                Update the description, select the preferred term, and set the
+                status.
               </p>
             </div>
             <div className="grid gap-4">
@@ -200,6 +204,20 @@ export default function Component() {
                     </label>
                   ))}
                 </div>
+              </div>
+              <div className="grid items-center grid-cols-4 gap-4">
+                <label htmlFor="status" className="text-right font-medium">
+                  Status
+                </label>
+                <select
+                  id="status"
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="col-span-3 bg-muted rounded-md border border-input px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="Unresolved">Unresolved</option>
+                  <option value="Resolved">Resolved</option>
+                </select>
               </div>
             </div>
             <div className="mt-6 flex justify-end">
