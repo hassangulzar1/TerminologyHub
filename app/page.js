@@ -116,8 +116,8 @@ export default function Component() {
               <tr key={conflict.id} className="border-b">
                 <td className="px-4 py-3">{conflict.description}</td>
                 <td className="px-4 py-3">
-                  {conflict.terms &&
-                    conflict.terms.map((term, index) => (
+                  {conflict.all_used_terms &&
+                    conflict.all_used_terms.map((term, index) => (
                       <span
                         key={index}
                         className={`inline-block bg-muted px-2 py-1 rounded-md mr-2 ${
