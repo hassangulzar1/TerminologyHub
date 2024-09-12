@@ -3,42 +3,37 @@
 import { useState, useRef, useEffect } from "react";
 
 export default function Component() {
-  const [conflicts, setConflicts] = useState([
-    {
-      id: 1,
-      description:
-        "A type of software that runs on a computer and performs specific tasks.",
-      terms: ["Application", "Program", "Software"],
-      status: "Unresolved",
-    },
-    {
-      id: 2,
-      description:
-        "The process of transferring data from one location to another.",
-      terms: ["Transfer", "Transmission", "Conveyance"],
-      status: "Unresolved",
-    },
-    {
-      id: 3,
-      description:
-        "A device that converts digital signals into analog signals and vice versa.",
-      terms: ["Converter", "Transducer", "Modulator"],
-      status: "Unresolved",
-    },
-    {
-      id: 4,
-      description:
-        "A type of data structure that stores a collection of elements in a specific order.",
-      terms: ["Array", "List", "Sequence"],
-      status: "Unresolved",
-    },
-  ]);
-
+  const [conflicts, setConflicts] = useState([]);
   const [selectedConflict, setSelectedConflict] = useState(null);
   const [selectedTerm, setSelectedTerm] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState("Unresolved");
   const [isModalVisible, setIsModalVisible] = useState(false);
   const modalRef = useRef(null);
+
+  // Terms from backend
+  useEffect(() => {
+    const fetchConflicts = async () => {
+      try {
+        const response = await fetch(
+          "https://pythonserver-1000521913987.europe-west2.run.app/terms"
+        );
+        const data = await response.json();
+        // Ensure that each conflict has a terms array
+        const formattedData = data.map((conflict) => ({
+          ...conflict,
+          terms: conflict.terms
+            ? conflict.terms.split(",").map((term) => term.trim())
+            : [],
+        }));
+        setConflicts(formattedData);
+        console.log(formattedData);
+      } catch (error) {
+        console.error("Error fetching conflicts:", error);
+      }
+    };
+
+    fetchConflicts();
+  }, []);
 
   const handleResolve = (conflict) => {
     setSelectedConflict(conflict);
@@ -121,24 +116,24 @@ export default function Component() {
               <tr key={conflict.id} className="border-b">
                 <td className="px-4 py-3">{conflict.description}</td>
                 <td className="px-4 py-3">
-                  {conflict.terms.map((term, index) => (
-                    <span
-                      key={index}
-                      className={`inline-block bg-muted px-2 py-1 rounded-md mr-2 ${
-                        conflict.status === "Resolved" &&
-                        conflict.terms[0] === term
-                          ? "bg-primary text-primary-foreground"
-                          : ""
-                      }`}
-                    >
-                      {term}
-                    </span>
-                  ))}
+                  {conflict.terms &&
+                    conflict.terms.map((term, index) => (
+                      <span
+                        key={index}
+                        className={`inline-block bg-muted px-2 py-1 rounded-md mr-2 ${
+                          conflict.status === "Resolved" && index === 0
+                            ? "bg-primary text-primary-foreground"
+                            : ""
+                        }`}
+                      >
+                        {term}
+                      </span>
+                    ))}
                 </td>
                 <td className="px-4 py-3">
                   <span
                     className={`inline-block px-2 py-1 rounded-md ${
-                      conflict.status === "Unresolved"
+                      conflict.status === "inactive"
                         ? "bg-red-500 text-white"
                         : "bg-green-500 text-white"
                     }`}
@@ -236,8 +231,8 @@ export default function Component() {
                   onChange={(e) => setSelectedStatus(e.target.value)}
                   className="col-span-3 bg-muted rounded-md border border-input px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 >
-                  <option value="Unresolved">Unresolved</option>
-                  <option value="Resolved">Resolved</option>
+                  <option value="Unresolved">active</option>
+                  <option value="Resolved">inactive</option>
                 </select>
               </div>
             </div>
