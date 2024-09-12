@@ -10,23 +10,15 @@ export default function Component() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const modalRef = useRef(null);
 
-  // Terms from backend
+  //! Code for retrive data from backend
   useEffect(() => {
     const fetchConflicts = async () => {
       try {
         const response = await fetch(
-          "https://pythonserver-1000521913987.europe-west2.run.app/terms"
+          "https://pythonserver-1000521913987.europe-west2.run.app//all-concepts"
         );
         const data = await response.json();
-        // Ensure that each conflict has a terms array
-        const formattedData = data.map((conflict) => ({
-          ...conflict,
-          terms: conflict.terms
-            ? conflict.terms.split(",").map((term) => term.trim())
-            : [],
-        }));
-        setConflicts(formattedData);
-        console.log(formattedData);
+        setConflicts(data);
       } catch (error) {
         console.error("Error fetching conflicts:", error);
       }
@@ -35,8 +27,50 @@ export default function Component() {
     fetchConflicts();
   }, []);
 
+  //! Code for edit terminology conflict
+  const updateTerms = async () => {
+    if (!selectedConflict) return;
+
+    try {
+      const response = await fetch(
+        `https://pythonserver-1000521913987.europe-west2.run.app/concept/${selectedConflict.id}/update-terms`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            terms: selectedConflict.terms,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to update terms");
+      }
+
+      const updatedConflict = await response.json();
+      setConflicts((prevConflicts) =>
+        prevConflicts.map((conflict) =>
+          conflict.id === updatedConflict.id ? updatedConflict : conflict
+        )
+      );
+    } catch (error) {
+      console.error("Error updating terms:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedConflict && selectedConflict.terms) {
+      updateTerms();
+    }
+  }, [selectedConflict]);
+
   const handleResolve = (conflict) => {
-    setSelectedConflict(conflict);
+    setSelectedConflict({
+      ...conflict,
+      terms: conflict.terms || [],
+    });
     setSelectedTerm(conflict.status === "Resolved" ? conflict.terms[0] : null);
     setSelectedStatus(conflict.status);
     setIsModalVisible(true);
@@ -57,14 +91,15 @@ export default function Component() {
     setConflicts(updatedConflicts);
     closeModal();
   };
-
+  console.log(selectedConflict);
+  // THIs code handle model
   const closeModal = () => {
     setIsModalVisible(false);
     setTimeout(() => {
       setSelectedConflict(null);
       setSelectedTerm(null);
       setSelectedStatus("Unresolved");
-    }, 300); // Wait for the fade-out transition to complete
+    }, 300);
   };
 
   const handleClickOutside = (event) => {
@@ -87,10 +122,12 @@ export default function Component() {
   };
 
   const addTerm = () => {
-    setSelectedConflict({
-      ...selectedConflict,
-      terms: [...selectedConflict.terms, ""],
-    });
+    if (selectedConflict.terms.length < 4) {
+      setSelectedConflict({
+        ...selectedConflict,
+        terms: [...selectedConflict.terms, ""],
+      });
+    }
   };
 
   const removeTerm = (index) => {
@@ -116,8 +153,8 @@ export default function Component() {
               <tr key={conflict.id} className="border-b">
                 <td className="px-4 py-3">{conflict.description}</td>
                 <td className="px-4 py-3">
-                  {conflict.all_used_terms &&
-                    conflict.all_used_terms.map((term, index) => (
+                  {conflict.terms &&
+                    conflict.terms.map((term, index) => (
                       <span
                         key={index}
                         className={`inline-block bg-muted px-2 py-1 rounded-md mr-2 ${
@@ -133,7 +170,7 @@ export default function Component() {
                 <td className="px-4 py-3">
                   <span
                     className={`inline-block px-2 py-1 rounded-md ${
-                      conflict.status === "inactive"
+                      conflict.status === "not resolved"
                         ? "bg-red-500 text-white"
                         : "bg-green-500 text-white"
                     }`}
@@ -168,7 +205,7 @@ export default function Component() {
           >
             <div className="mb-4">
               <h2 className="text-2xl font-bold">
-                {selectedConflict.status === "Resolved" ? "Edit" : "Resolve"}{" "}
+                {selectedConflict.status === "Resolved" ? "Edit" : "Resolve"}
                 Terminology Conflict
               </h2>
               <p className="text-muted-foreground">
@@ -213,12 +250,14 @@ export default function Component() {
                       </button>
                     </div>
                   ))}
-                  <button
-                    onClick={addTerm}
-                    className="text-primary hover:text-primary/80"
-                  >
-                    Add Term
-                  </button>
+                  {selectedConflict.terms.length < 4 && (
+                    <button
+                      onClick={addTerm}
+                      className="text-primary hover:text-primary/80"
+                    >
+                      Add Term
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="grid items-center grid-cols-4 gap-4">
@@ -231,8 +270,8 @@ export default function Component() {
                   onChange={(e) => setSelectedStatus(e.target.value)}
                   className="col-span-3 bg-muted rounded-md border border-input px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 >
-                  <option value="Unresolved">active</option>
-                  <option value="Resolved">inactive</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="not resolved">Not Resolved</option>
                 </select>
               </div>
             </div>
