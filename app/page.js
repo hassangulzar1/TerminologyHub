@@ -8,8 +8,53 @@ export default function Component() {
   const [selectedTerm, setSelectedTerm] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState("Unresolved");
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [preferredTerm, setPreferredTerm] = useState(null);
   const modalRef = useRef(null);
 
+  // Handle save changes
+  const handleSaveChanges = async () => {
+    const updatedConflicts = conflicts.map((c) => {
+      if (c.id === selectedConflict.id) {
+        return {
+          ...c,
+          description: selectedConflict.description,
+          terms: selectedConflict.terms,
+          status: selectedStatus,
+          preferredTerm: preferredTerm,
+        };
+      }
+      return c;
+    });
+    setConflicts(updatedConflicts);
+
+    // Update preferred term
+    if (preferredTerm) {
+      try {
+        const response = await fetch(
+          `https://pythonserver-1000521913987.europe-west2.run.app/concept/${selectedConflict.id}/preferred-term`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              preferred_term: preferredTerm,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to update preferred term");
+        }
+
+        console.log("Preferred term updated successfully");
+      } catch (error) {
+        console.error("Error updating preferred term:", error);
+      }
+    }
+
+    closeModal();
+  };
   //! Code for retrive data from backend
   useEffect(() => {
     const fetchConflicts = async () => {
@@ -25,7 +70,7 @@ export default function Component() {
     };
 
     fetchConflicts();
-  }, []);
+  }, [handleSaveChanges]);
 
   //! Code for edit terminology conflict
   const updateTerms = async () => {
@@ -73,24 +118,10 @@ export default function Component() {
     });
     setSelectedTerm(conflict.status === "Resolved" ? conflict.terms[0] : null);
     setSelectedStatus(conflict.status);
+    setPreferredTerm(conflict.preferredTerm || null);
     setIsModalVisible(true);
   };
 
-  const handleSaveChanges = () => {
-    const updatedConflicts = conflicts.map((c) => {
-      if (c.id === selectedConflict.id) {
-        return {
-          ...c,
-          description: selectedConflict.description,
-          terms: selectedConflict.terms,
-          status: selectedStatus,
-        };
-      }
-      return c;
-    });
-    setConflicts(updatedConflicts);
-    closeModal();
-  };
   console.log(selectedConflict);
   // THIs code handle model
   const closeModal = () => {
@@ -99,6 +130,7 @@ export default function Component() {
       setSelectedConflict(null);
       setSelectedTerm(null);
       setSelectedStatus("Unresolved");
+      setPreferredTerm(null);
     }, 300);
   };
 
@@ -133,8 +165,11 @@ export default function Component() {
   const removeTerm = (index) => {
     const updatedTerms = selectedConflict.terms.filter((_, i) => i !== index);
     setSelectedConflict({ ...selectedConflict, terms: updatedTerms });
+    if (preferredTerm === selectedConflict.terms[index]) {
+      setPreferredTerm(null);
+    }
   };
-
+  console.log(conflicts);
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-6">Terminology Conflicts</h1>
@@ -158,8 +193,8 @@ export default function Component() {
                       <span
                         key={index}
                         className={`inline-block bg-muted px-2 py-1 rounded-md mr-2 ${
-                          conflict.status === "Resolved" && index === 0
-                            ? "bg-primary text-primary-foreground"
+                          conflict.preferred_term == term
+                            ? "bg-black text-white"
                             : ""
                         }`}
                       >
@@ -258,6 +293,25 @@ export default function Component() {
                       Add Term
                     </button>
                   )}
+                </div>
+              </div>
+              <div className="grid items-center grid-cols-4 gap-4">
+                <label className="text-right font-medium">Preferred Term</label>
+                <div className="col-span-3 grid gap-2">
+                  {selectedConflict.terms.map((term, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        id={`term-${index}`}
+                        name="preferredTerm"
+                        value={term}
+                        checked={preferredTerm === term}
+                        onChange={() => setPreferredTerm(term)}
+                        className="mr-2"
+                      />
+                      <label htmlFor={`term-${index}`}>{term}</label>
+                    </div>
+                  ))}
                 </div>
               </div>
               <div className="grid items-center grid-cols-4 gap-4">
