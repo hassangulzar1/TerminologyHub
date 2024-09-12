@@ -305,7 +305,11 @@ export default function Component() {
                         id={`term-${index}`}
                         name="preferredTerm"
                         value={term}
-                        checked={preferredTerm === term}
+                        checked={
+                          preferredTerm === term ||
+                          (selectedConflict.preferred_term === term &&
+                            !preferredTerm)
+                        }
                         onChange={() => setPreferredTerm(term)}
                         className="mr-2"
                       />
