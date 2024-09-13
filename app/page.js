@@ -3,64 +3,21 @@
 import { useState, useRef, useEffect } from "react";
 
 export default function Component() {
+  //! State declarations
   const [conflicts, setConflicts] = useState([]);
   const [selectedConflict, setSelectedConflict] = useState(null);
-  const [selectedTerm, setSelectedTerm] = useState(null);
-  const [selectedStatus, setSelectedStatus] = useState("Unresolved");
+  const [selectedStatus, setSelectedStatus] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [preferredTerm, setPreferredTerm] = useState(null);
+  const [isNewConcept, setIsNewConcept] = useState(false);
   const modalRef = useRef(null);
 
-  // Handle save changes
-  const handleSaveChanges = async () => {
-    const updatedConflicts = conflicts.map((c) => {
-      if (c.id === selectedConflict.id) {
-        return {
-          ...c,
-          description: selectedConflict.description,
-          terms: selectedConflict.terms,
-          status: selectedStatus,
-          preferredTerm: preferredTerm,
-        };
-      }
-      return c;
-    });
-    setConflicts(updatedConflicts);
-
-    // Update preferred term
-    if (preferredTerm) {
-      try {
-        const response = await fetch(
-          `https://pythonserver-1000521913987.europe-west2.run.app/concept/${selectedConflict.id}/preferred-term`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              preferred_term: preferredTerm,
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error("Failed to update preferred term");
-        }
-
-        console.log("Preferred term updated successfully");
-      } catch (error) {
-        console.error("Error updating preferred term:", error);
-      }
-    }
-
-    closeModal();
-  };
-  //! Code for retrive data from backend
+  //! Fetch conflicts from the backend
   useEffect(() => {
     const fetchConflicts = async () => {
       try {
         const response = await fetch(
-          "https://pythonserver-1000521913987.europe-west2.run.app//all-concepts"
+          "https://pythonserver-1000521913987.europe-west2.run.app/all-concepts"
         );
         const data = await response.json();
         setConflicts(data);
@@ -70,9 +27,95 @@ export default function Component() {
     };
 
     fetchConflicts();
-  }, [handleSaveChanges]);
+  }, [preferredTerm]);
 
-  //! Code for edit terminology conflict
+  //! Handle saving changes to a conflict or adding a new concept
+  const handleSaveChanges = async () => {
+    if (!selectedConflict) return;
+
+    if (isNewConcept) {
+      // Add new concept
+      try {
+        const response = await fetch(
+          "https://pythonserver-1000521913987.europe-west2.run.app//concepts",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              description: selectedConflict.description,
+              terms: selectedConflict.terms,
+              preferred_term: preferredTerm,
+              status: selectedStatus,
+            }),
+          }
+        );
+
+        if (!response.ok) throw new Error("Failed to add new concept");
+        const newConcept = await response.json();
+        setConflicts((prevConflicts) => [...prevConflicts, newConcept]);
+        console.log("New concept added successfully");
+      } catch (error) {
+        console.error("Error adding new concept:", error);
+      }
+    } else {
+      // Update existing conflict
+      setConflicts((prevConflicts) =>
+        prevConflicts.map((c) =>
+          c.id === selectedConflict.id
+            ? {
+                ...c,
+                ...selectedConflict,
+                status: selectedStatus,
+                preferredTerm,
+              }
+            : c
+        )
+      );
+
+      //! Update preferred term on the backend
+      if (preferredTerm) {
+        try {
+          const response = await fetch(
+            `https://pythonserver-1000521913987.europe-west2.run.app/concept/${selectedConflict.id}/preferred-term`,
+            {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ preferred_term: preferredTerm }),
+            }
+          );
+
+          if (!response.ok) throw new Error("Failed to update preferred term");
+          console.log("Preferred term updated successfully");
+        } catch (error) {
+          console.error("Error updating preferred term:", error);
+        }
+      }
+      //! Update Status on the backend
+      if (selectedStatus) {
+        try {
+          const response = await fetch(
+            `https://pythonserver-1000521913987.europe-west2.run.app/update-status/${selectedConflict.id}`,
+            {
+              method: "PUT",
+              headers: {
+                accept: "application/json",
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ status: selectedStatus }),
+            }
+          );
+
+          if (!response.ok) throw new Error("Failed to update status");
+          console.log("Status updated successfully");
+        } catch (error) {
+          console.error("Error updating status:", error);
+        }
+      }
+    }
+    closeModal();
+  };
+
+  //! Update terms for a conflict
   const updateTerms = async () => {
     if (!selectedConflict) return;
 
@@ -81,18 +124,12 @@ export default function Component() {
         `https://pythonserver-1000521913987.europe-west2.run.app/concept/${selectedConflict.id}/update-terms`,
         {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            terms: selectedConflict.terms,
-          }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ terms: selectedConflict.terms }),
         }
       );
 
-      if (!response.ok) {
-        throw new Error("Failed to update terms");
-      }
+      if (!response.ok) throw new Error("Failed to update terms");
 
       const updatedConflict = await response.json();
       setConflicts((prevConflicts) =>
@@ -106,31 +143,42 @@ export default function Component() {
   };
 
   useEffect(() => {
-    if (selectedConflict && selectedConflict.terms) {
+    if (selectedConflict?.terms && !isNewConcept) {
       updateTerms();
     }
   }, [selectedConflict]);
 
+  //! Handle resolving or editing a conflict
   const handleResolve = (conflict) => {
     setSelectedConflict({
       ...conflict,
       terms: conflict.terms || [],
     });
-    setSelectedTerm(conflict.status === "Resolved" ? conflict.terms[0] : null);
     setSelectedStatus(conflict.status);
     setPreferredTerm(conflict.preferredTerm || null);
     setIsModalVisible(true);
+    setIsNewConcept(false);
   };
 
-  console.log(selectedConflict);
-  // THIs code handle model
+  //! Handle adding a new concept
+  const handleAddNewConcept = () => {
+    setSelectedConflict({
+      description: "",
+      terms: [""],
+    });
+    setSelectedStatus("not resolved");
+    setPreferredTerm(null);
+    setIsModalVisible(true);
+    setIsNewConcept(true);
+  };
+
+  // Modal management
   const closeModal = () => {
     setIsModalVisible(false);
     setTimeout(() => {
       setSelectedConflict(null);
-      setSelectedTerm(null);
-      setSelectedStatus("Unresolved");
       setPreferredTerm(null);
+      setIsNewConcept(false);
     }, 300);
   };
 
@@ -142,37 +190,48 @@ export default function Component() {
 
   useEffect(() => {
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  //! Term management
   const handleTermChange = (index, value) => {
-    const updatedTerms = [...selectedConflict.terms];
-    updatedTerms[index] = value;
-    setSelectedConflict({ ...selectedConflict, terms: updatedTerms });
+    setSelectedConflict((prev) => ({
+      ...prev,
+      terms: prev.terms.map((term, i) => (i === index ? value : term)),
+    }));
   };
 
   const addTerm = () => {
     if (selectedConflict.terms.length < 4) {
-      setSelectedConflict({
-        ...selectedConflict,
-        terms: [...selectedConflict.terms, ""],
-      });
+      setSelectedConflict((prev) => ({
+        ...prev,
+        terms: [...prev.terms, ""],
+      }));
     }
   };
 
   const removeTerm = (index) => {
-    const updatedTerms = selectedConflict.terms.filter((_, i) => i !== index);
-    setSelectedConflict({ ...selectedConflict, terms: updatedTerms });
+    setSelectedConflict((prev) => ({
+      ...prev,
+      terms: prev.terms.filter((_, i) => i !== index),
+    }));
     if (preferredTerm === selectedConflict.terms[index]) {
       setPreferredTerm(null);
     }
   };
-  console.log(conflicts);
+
+  //! Render component
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-6">Terminology Conflicts</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Terminology Conflicts</h1>
+        <button
+          className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md transition-colors bg-primary text-primary-foreground hover:bg-primary/90"
+          onClick={handleAddNewConcept}
+        >
+          Add New Concept
+        </button>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full table-auto">
           <thead>
@@ -188,19 +247,18 @@ export default function Component() {
               <tr key={conflict.id} className="border-b">
                 <td className="px-4 py-3">{conflict.description}</td>
                 <td className="px-4 py-3">
-                  {conflict.terms &&
-                    conflict.terms.map((term, index) => (
-                      <span
-                        key={index}
-                        className={`inline-block bg-muted px-2 py-1 rounded-md mr-2 ${
-                          conflict.preferred_term == term
-                            ? "bg-black text-white"
-                            : ""
-                        }`}
-                      >
-                        {term}
-                      </span>
-                    ))}
+                  {conflict.terms?.map((term, index) => (
+                    <span
+                      key={index}
+                      className={`inline-block bg-muted px-2 py-1 rounded-md mr-2 ${
+                        conflict.preferred_term === term
+                          ? "bg-black text-white"
+                          : ""
+                      }`}
+                    >
+                      {term}
+                    </span>
+                  ))}
                 </td>
                 <td className="px-4 py-3">
                   <span
@@ -240,11 +298,17 @@ export default function Component() {
           >
             <div className="mb-4">
               <h2 className="text-2xl font-bold">
-                {selectedConflict.status === "Resolved" ? "Edit" : "Resolve"}
+                {isNewConcept
+                  ? "Add New Concept"
+                  : selectedConflict.status === "Resolved"
+                  ? "Edit"
+                  : "Resolve"}{" "}
                 Terminology Conflict
               </h2>
               <p className="text-muted-foreground">
-                Update the description, edit terms, and set the status.
+                {isNewConcept
+                  ? "Add a new concept"
+                  : "Update the description, edit terms, and set the status."}
               </p>
             </div>
             <div className="grid gap-4">
@@ -256,10 +320,10 @@ export default function Component() {
                   id="description"
                   value={selectedConflict.description}
                   onChange={(e) =>
-                    setSelectedConflict({
-                      ...selectedConflict,
+                    setSelectedConflict((prev) => ({
+                      ...prev,
                       description: e.target.value,
-                    })
+                    }))
                   }
                   className="col-span-3 bg-muted rounded-md border border-input px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 />
@@ -338,7 +402,7 @@ export default function Component() {
                 className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-1 focus:ring-primary/50"
                 onClick={handleSaveChanges}
               >
-                Save Changes
+                {isNewConcept ? "Add Concept" : "Save Changes"}
               </button>
             </div>
           </div>
